@@ -4,14 +4,14 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-  name: tackle-operator.v0.0.0
+  name: konveyor-operator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions: {}
   description: Tackle contains tools that support the modernization and migration
     of applications to Kubernetes and OpenShift
-  displayName: Tackle Operator
+  displayName: Konveyor Operator
   icon:
   - base64data: ""
     mediatype: ""
@@ -33,12 +33,12 @@ spec:
   - konveyor
   - modernization
   links:
-  - name: Tackle Operator
-    url: https://tackle-operator.domain
+  - name: Konveyor Operator
+    url: https://konveyor-operator.domain
   maintainers:
   - email: tackle-dev@googlegroups.com
     name: Tackle by Konveyor Community
-  maturity: alpha
+  maturity: development
   provider:
     name: Konveyor
     url: https://www.konveyor.io/

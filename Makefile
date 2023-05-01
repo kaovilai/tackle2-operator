@@ -15,6 +15,7 @@ CONTAINER_RUNTIME ?= docker
 TARGET_ARCH ?= amd64
 
 # CHANNELS define the bundle channels used in the bundle.
+CHANNELS = "development"
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
@@ -57,7 +58,7 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # Image URL to use all building/pushing image targets
-IMG ?= tackle-operator:latest
+IMG ?= quay.io/konveyor/tackle2-operator:latest
 
 .PHONY: all
 all: docker-build
@@ -117,13 +118,20 @@ ARCH := $(shell uname -m | sed 's/x86_64/amd64/')
 
 .PHONY: kustomize
 KUSTOMIZE = $(shell pwd)/bin/kustomize
+KUSTOMIZE_ARCH=$(ARCH)
+ifeq ($(OS),darwin)
+# Kustomize does not provide a Darwin/arm64 binary for v3.8.7
+	KUSTOMIZE_ARCH="amd64"
+endif
 kustomize: ## Download kustomize locally if necessary.
 ifeq (,$(wildcard $(KUSTOMIZE)))
 ifeq (,$(shell which kustomize 2>/dev/null))
 	@{ \
-	set -e ;\
-	mkdir -p $(dir $(KUSTOMIZE)) ;\
-	curl -sSLo - https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v3.8.7/kustomize_v3.8.7_$(OS)_$(ARCH).tar.gz | \
+	set -e &&\
+	echo "$(KUSTOMIZE_ARCH)" &&\
+	mkdir -p $(dir $(KUSTOMIZE)) &&\
+	echo https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v3.8.7/kustomize_v3.8.7_$(OS)_$(KUSTOMIZE_ARCH).tar.gz &&\
+	curl -sSLo - https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize/v3.8.7/kustomize_v3.8.7_$(OS)_$(KUSTOMIZE_ARCH).tar.gz | \
 	tar xzf - -C bin/ ;\
 	}
 else
@@ -147,12 +155,20 @@ ANSIBLE_OPERATOR = $(shell which ansible-operator)
 endif
 endif
 
+OPERATOR_SDK = $(shell pwd)/bin/operator-sdk
+.PHONY: operator-sdk
+operator-sdk: $(OPERATOR_SDK)
+
+$(OPERATOR_SDK):
+	curl -Lo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/v1.28.1/operator-sdk_$(shell go env GOOS)_$(shell go env GOARCH) && \
+	chmod +x $(OPERATOR_SDK);
+
 .PHONY: bundle
-bundle: kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
+bundle: kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	operator-sdk bundle validate ./bundle
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
